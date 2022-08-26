@@ -1,0 +1,85 @@
+/* Simple +/-/* expression language; parser evaluates constant expressions on the fly*/
+/**
+ *  Package and Import Specifications
+ */
+import java_cup.runtime.*;
+
+/**
+ *  Usercode Components
+ */
+parser code {:
+    // Connect this parser to a scanner!
+    Scanner s;
+    Parser(Scanner s){ this.s=s; }
+:}
+
+/* define how to connect to the scanner! */
+scan with {: return s.next_token(); :};
+
+/**
+ *  Symbol Lists
+ */
+
+/* Terminals (tokens returned by the scanner). */
+terminal            PLUS, LPAREN, RPAREN, COMMA, LBRACK, RBRACK, IF, ELSE, PREFIX, REVERSE; 
+terminal String     STRING_LITERAL, IDENTIFIER;
+
+/*  Non terminals */
+non terminal            Goal, function, functionBody, call, calls, args, list, exp, string, ifelsestmnt, op, callTail;
+
+/**
+ *  Precedence Declarations
+ */
+precedence left PREFIX;
+precedence left IF;
+precedence left PLUS;
+precedence left REVERSE;
+
+/**
+ *  The Grammar Rules
+ */
+
+
+Goal ::= function:fn calls:cs  {: System.out.println("import java.lang.StringBuilder; \n" + "public class Main{\n\tpublic static void main(String[] args){\n" + cs + "\t}\n" + fn + "\n}"); :}
+;
+
+calls ::= call:c callTail:ct      {: RESULT = "\t\tSystem.out.println(" + ((String)c).replaceAll("String ","") + ");\n" + ct; :} 
+;
+
+callTail ::= calls:cs  {: RESULT = cs; :} 
+            |          {: RESULT = ""; :} 
+;
+
+call ::= IDENTIFIER:id args:ar      {: RESULT = id + ar; :}
+;
+
+args ::= LPAREN list:l RPAREN {: RESULT = "(" + l + ")"; :}
+    | LPAREN RPAREN  {: RESULT = "()"; :}    
+;
+
+list ::= list:l COMMA exp:e      {: RESULT = l + ", " + "String " + e; :}
+            | exp:e              {: RESULT = "String " + e; :}
+;
+
+function ::= function:fn call:c LBRACK functionBody:fb        {: RESULT = "\tpublic static String " + c + fb + "\n" + fn; :}
+        | /* e */             {: RESULT = ""; :}
+;
+
+functionBody ::=  exp:e RBRACK        {: RESULT =  "{\n\t\treturn " + e + ";\n\t}"; :}
+;
+
+exp ::= exp:e1 PLUS exp:e2      {: RESULT = e1 + " + " + e2; :}
+    | REVERSE exp:e3            {: RESULT =  "new StringBuilder(" + e3 + ").reverse().toString()"; :} 
+    | string:s                  {: RESULT = s; :} 
+;
+
+string ::= IDENTIFIER:id        {: RESULT = id; :}
+     |  STRING_LITERAL:sl       {: RESULT = "\"" + sl + "\""; :}
+     |  ifelsestmnt:ie          {: RESULT = ie; :}
+     |  call:c                  {: RESULT = ((String)c).replaceAll("String ",""); :} 
+     |  LPAREN exp:e RPAREN     {: RESULT = "(" + e + ")"; :}
+;
+
+ifelsestmnt ::= IF LPAREN exp:e1 PREFIX:o exp:e2 RPAREN exp:e3 ELSE exp:e4  {: RESULT = "(" + "(" + e2 + ")." + "startsWith" + "(" + e1 + ")" + "?" + e3 + ":" + e4 + ")"; :} 
+;
+
